@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Estudiantes y Asistencia QR</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans min-h-screen">
+
+    <nav class="bg-blue-600 text-white p-4 shadow-md sticky top-0 z-50">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold"><i class="fa-solid fa-graduation-cap mr-2"></i>Sistema Control Estudiantil</h1>
+            <button onclick="exportarBackup()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2">
+                <i class="fa-solid fa-download"></i> Exportar Backup (JS)
+            </button>
+        </div>
+    </nav>
+
+    <div class="container mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <div class="space-y-6 lg:col-span-1">
+            <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                <h2 class="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-calendar-days text-blue-600"></i> Control de Asistencia
+                </h2>
+                
+                <label class="block text-sm font-medium text-gray-600 mb-1">Fecha de Control:</label>
+                <input type="date" id="fechaAsistencia" class="w-full p-2 border border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-blue-500 outline-none">
+                
+                <div class="border-2 border-dashed border-gray-300 rounded-xl p-4 bg-gray-50 text-center">
+                    <p class="text-xs text-gray-500 mb-2">Escanea el DNI del estudiante desde el móvil</p>
+                    <div id="reader" class="w-full overflow-hidden rounded-lg"></div>
+                    <button onclick="iniciarEscaneo()" class="w-full mt-3 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg font-semibold text-sm transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-camera"></i> Activar Cámara QR
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100 max-h-96 overflow-y-auto">
+                <h3 class="font-bold text-gray-700 mb-3 flex justify-between items-center">
+                    <span>Asistencias de Hoy</span>
+                    <button onclick="gestionarAsistenciasManual()" class="text-xs text-blue-600 hover:underline">Gestión Manual</button>
+                </h3>
+                <ul id="listaAsistenciasHoy" class="divide-y divide-gray-100 text-sm">
+                    </ul>
+            </div>
+        </div>
+
+        <div class="lg:col-span-2 space-y-4">
+            <div class="bg-white p-6 rounded-xl shadow-md border border-gray-100">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-800">Panel de Estudiantes</h2>
+                        <p class="text-sm text-gray-500">Gestión de datos de matrícula</p>
+                    </div>
+                    <button onclick="abrirFormularioEstudiante()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition flex items-center gap-2 w-full sm:w-auto justify-center">
+                        <i class="fa-solid fa-user-plus"></i> Registrar Estudiante
+                    </button>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-100 text-gray-600 uppercase text-xs tracking-wider border-b border-gray-200">
+                                <th class="p-3">Estudiante</th>
+                                <th class="p-3">DNI</th>
+                                <th class="p-3">Género / Edad</th>
+                                <th class="p-3">Teléfono</th>
+                                <th class="p-3 text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tablaEstudiantes" class="divide-y divide-gray-100 text-sm text-gray-700">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 1. BASE DE DATOS INICIAL (20 Registros solicitados)
+        let estudiantes = [
+            { dni: "74839201", nombres: "Alejandro Luis", apellidos: "Mendoza Castro", genero: "Masculino", edad: 19, telefono: "981234567" },
+            { dni: "45920183", nombres: "Camila Fernanda", apellidos: "Quispe Rojas", genero: "Femenino", edad: 21, telefono: "955782134" },
+            { dni: "70293841", nombres: "Mateo Sebastián", apellidos: "Flores Flores", genero: "Masculino", edad: 18, telefono: "912345678" },
+            { dni: "48392012", nombres: "Valeria Sofía", apellidos: "Sánchez Huamán", genero: "Femenino", edad: 22, telefono: "993456789" },
+            { dni: "71829304", nombres: "Diego Alonso", Ramos: "Mamani", apellidos: "Ramos Mamani", genero: "Masculino", edad: 20, telefono: "947561230" },
+            { dni: "42938401", nombres: "Lucía Beatriz", apellidos: "Espinoza Diaz", genero: "Femenino", edad: 23, telefono: "961890123" },
+            { dni: "76543210", nombres: "Carlos Daniel", apellidos: "Torres Gutiérrez", genero: "Masculino", edad: 19, telefono: "934567890" },
+            { dni: "49302184", nombres: "Andrea Carolina", apellidos: "Vargas Ruiz", genero: "Femenino", edad: 20, telefono: "972134567" },
+            { dni: "73829104", nombres: "Juan Pablo", apellidos: "Castillo Chávez", genero: "Masculino", edad: 25, telefono: "925456781" },
+            { dni: "41029384", nombres: "Mariana Jimena", apellidos: "Salazar Alva", genero: "Femenino", edad: 18, telefono: "951753951" },
+            { dni: "75940312", nombres: "Nicolás André", apellidos: "Paredes Meza", genero: "Masculino", edad: 21, telefono: "983654321" },
+            { dni: "47382910", nombres: "Daniela Alejandra", apellidos: "Morales Vega", genero: "Femenino", edad: 22, telefono: "917283940" },
+            { dni: "72819304", nombres: "Gabriel Omar", apellidos: "Romero Ortiz", genero: "Masculino", edad: 20, telefono: "966472819" },
+            { dni: "44930218", nombres: "Claudia Elena", apellidos: "Medina Silva", genero: "Femenino", edad: 19, telefono: "991382746" },
+            { dni: "70419283", nombres: "Matías Ignacio", apellidos: "Navarro Rios", genero: "Masculino", edad: 24, telefono: "932817263" },
+            { dni: "46102938", nombres: "Natalia Isabel", apellidos: "Delgado Cruz", genero: "Femenino", edad: 21, telefono: "944928317" },
+            { dni: "71930284", nombres: "Franco David", apellidos: "Córdoba Gómez", genero: "Masculino", edad: 18, telefono: "977102938" },
+            { dni: "43829104", nombres: "María José", apellidos: "Benítez Peña", genero: "Femenino", edad: 20, telefono: "922837465" },
+            { dni: "75041928", nombres: "Thiago Renato", apellidos: "Villanueva Solís", genero: "Masculino", edad: 22, telefono: "953192837" },
+            { dni: "48291039", nombres: "Ana Paula", apellidos: "Soto Palomino", genero: "Femenino", edad: 23, telefono: "985746321" }
+        ];
+
+        let asistencias = []; // Almacena objetos { fecha: 'YYYY-MM-DD', dni: '12345678' }
+        let html5QrcodeScanner = null;
+
+        // Inicializar la App
+        window.onload = function() {
+            document.getElementById('fechaAsistencia').value = new Date().toISOString().split('T')[0];
+            renderEstudiantes();
+            renderAsistencias();
+            document.getElementById('fechaAsistencia').addEventListener('change', renderAsistencias);
+        };
+
+        // Renderizar tabla de estudiantes
+        function renderEstudiantes() {
+            const tbody = document.getElementById('tablaEstudiantes');
+            tbody.innerHTML = '';
+            estudiantes.forEach((est, index) => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="p-3">
+                            <div class="font-semibold text-gray-900">${est.nombres}</div>
+                            <div class="text-xs text-gray-400">${est.apellidos}</div>
+                        </td>
+                        <td class="p-3 font-mono text-sm">${est.dni}</td>
+                        <td class="p-3">
+                            <span class="px-2 py-0.5 rounded-full text-xs ${est.genero === 'Masculino' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-800'}">${est.genero}</span>
+                            <span class="ml-2 text-gray-500">${est.edad} años</span>
+                        </td>
+                        <td class="p-3 text-gray-600">${est.telefono}</td>
+                        <td class="p-3 text-center space-x-1">
+                            <button onclick="abrirFormularioEstudiante(${index})" class="text-blue-600 hover:text-blue-800 p-1" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>
+                            <button onclick="eliminarEstudiante(${index})" class="text-red-600 hover:text-red-800 p-1" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // Renderizar panel de asistencias del día seleccionado
+        function renderAsistencias() {
+            const fechaSel = document.getElementById('fechaAsistencia').value;
+            const lista = document.getElementById('listaAsistenciasHoy');
+            lista.innerHTML = '';
+
+            const asistenciasFiltradas = asistencias.filter(a => a.fecha === fechaSel);
+
+            if(asistenciasFiltradas.length === 0) {
+                lista.innerHTML = `<li class="p-3 text-center text-gray-400 italic">No hay registros para este día</li>`;
+                return;
+            }
+
+            asistenciasFiltradas.forEach(asist => {
+                const est = estudiantes.find(e => e.dni === asist.dni);
+                const nombreCompleto = est ? `${est.nombres} ${est.apellidos}` : "Estudiante no registrado";
+                lista.innerHTML += `
+                    <li class="py-2 flex justify-between items-center">
+                        <div>
+                            <p class="font-medium text-gray-800">${nombreCompleto}</p>
+                            <p class="text-xs font-mono text-gray-400">DNI: ${asist.dni}</p>
+                        </div>
+                        <span class="text-green-600 bg-green-50 px-2 py-1 rounded text-xs font-bold"><i class="fa-solid fa-check"></i> Presente</span>
+                    </li>
+                `;
+            });
+        }
+
+        // 2. CRUD ESTUDIANTES CON SWEETALERT2 (Registrar / Editar)
+        async function abrirFormularioEstudiante(index = null) {
+            const esEdicion = index !== null;
+            const est = esEdicion ? estudiantes[index] : { dni:'', nombres:'', apellidos:'', genero:'Masculino', edad:'', telefono:'' };
+
+            const { value: formValues } = await Swal.fire({
+                title: esEdicion ? 'Editar Estudiante' : 'Nuevo Estudiante',
+                html: `
+                    <input id="swal-dni" class="swal2-input" placeholder="DNI (8 dígitos)" value="${est.dni}" ${esEdicion ? 'disabled' : ''}>
+                    <input id="swal-nombres" class="swal2-input" placeholder="Nombres" value="${est.nombres}">
+                    <input id="swal-apellidos" class="swal2-input" placeholder="Apellidos" value="${est.apellidos}">
+                    <select id="swal-genero" class="swal2-input">
+                        <option value="Masculino" ${est.genero === 'Masculino' ? 'selected' : ''}>Masculino</option>
+                        <option value="Femenino" ${est.genero === 'Femenino' ? 'selected' : ''}>Femenino</option>
+                    </select>
+                    <input id="swal-edad" type="number" class="swal2-input" placeholder="Edad" value="${est.edad}">
+                    <input id="swal-telefono" class="swal2-input" placeholder="Teléfono" value="${est.telefono}">
+                `,
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Guardar',
+                cancelButtonText: 'Cancelar',
+                preConfirm: () => {
+                    const dni = document.getElementById('swal-dni').value.trim();
+                    const nombres = document.getElementById('swal-nombres').value.trim();
+                    const apellidos = document.getElementById('swal-apellidos').value.trim();
+                    const genero = document.getElementById('swal-genero').value;
+                    const edad = parseInt(document.getElementById('swal-edad').value);
+                    const telefono = document.getElementById('swal-telefono').value.trim();
+
+                    if (!dni || !nombres || !apellidos || !edad || !telefono) {
+                        Swal.showValidationMessage('Todos los campos son obligatorios');
+                        return false;
+                    }
+                    if (dni.length !== 8 || isNaN(dni)) {
+                        Swal.showValidationMessage('El DNI debe tener 8 dígitos numéricos');
+                        return false;
+                    }
+                    if (!esEdicion && estudiantes.some(e => e.dni === dni)) {
+                        Swal.showValidationMessage('Este DNI ya está registrado');
+                        return false;
+                    }
+                    return { dni, nombres, apellidos, genero, edad, telefono };
+                }
+            });
+
+            if (formValues) {
+                if (esEdicion) {
+                    estudiantes[index] = formValues;
+                    Swal.fire('¡Actualizado!', 'Los datos han sido modificados con éxito.', 'success');
+                } else {
+                    estudiantes.push(formValues);
+                    Swal.fire('¡Registrado!', 'El estudiante fue añadido al sistema.', 'success');
+                }
+                renderEstudiantes();
+                renderAsistencias();
+            }
+        }
+
+        // Eliminar Estudiante
+        function eliminarEstudiante(index) {
+            Swal.fire({
+                title: '¿Estás seguro?',
+                text: `Vas a eliminar a ${estudiantes[index].nombres}. Esta acción no se puede deshacer.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Limpiar asistencias asociadas
+                    asistencias = asistencias.filter(a => a.dni !== estudiantes[index].dni);
+                    estudiantes.splice(index, 1);
+                    renderEstudiantes();
+                    renderAsistencias();
+                    Swal.fire('Eliminado', 'El estudiante ha sido borrado.', 'success');
+                }
+            });
+        }
+
+        // 3. REGISTRO DE ASISTENCIA POR LECTOR QR
+        function registrarAsistenciaPorDni(dni) {
+            const fechaSel = document.getElementById('fechaAsistencia').value;
+            const existeEstudiante = estudiantes.some(e => e.dni === dni);
+
+            if (!existeEstudiante) {
+                Swal.fire('Error', `El DNI ${dni} no corresponde a ningún estudiante.`, 'error');
+                return;
+            }
+
+            const yaAsistio = asistencias.some(a => a.fecha === fechaSel && a.dni === dni);
+            if (yaAsistio) {
+                Swal.fire('Aviso', 'Este estudiante ya registró asistencia el día de hoy.', 'info');
+                return;
+            }
+
+            asistencias.push({ fecha: fechaSel, dni: dni });
+            renderAsistencias();
+            
+            const alumno = estudiantes.find(e => e.dni === dni);
+            Swal.fire({
+                title: 'Asistencia Registrada',
+                text: `${alumno.nombres} ${alumno.apellidos} está presente.`,
+                icon: 'success',
+                timer: 2000,
+                showConfirmButton: false
+            });
+        }
+
+        function iniciarEscaneo() {
+            if (html5QrcodeScanner === null) {
+                html5QrcodeScanner = new Html5Qrcode("reader");
+            }
+            
+            const qrCodeSuccessCallback = (decodedText, decodedResult) => {
+                // Detener escaneo tras detectar coincidencia exitosa
+                html5QrcodeScanner.stop().then(() => {
+                    registrarAsistenciaPorDni(decodedText.trim());
+                }).catch(err => console.error(err));
+            };
+
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+            
+            // Inicia usando la cámara trasera por defecto
+            html5QrcodeScanner.start({ facingMode: "environment" }, config, qrCodeSuccessCallback)
+            .catch(err => {
+                Swal.fire('Error de cámara', 'No se pudo acceder a la cámara del dispositivo.', 'error');
+            });
+        }
+
+        // 4. GESTIÓN MANUAL DE ASISTENCIAS (Modificar registros de asistencia)
+        async function gestionarAsistenciasManual() {
+            const fechaSel = document.getElementById('fechaAsistencia').value;
+            
+            // Creamos un formulario interactivo con checks para todos los estudiantes
+            let opcionesHtml = `<div class="text-left max-h-60 overflow-y-auto space-y-2 p-2">`;
+            estudiantes.forEach(est => {
+                const marcado = asistencias.some(a => a.fecha === fechaSel && a.dni === est.dni) ? 'checked' : '';
+                opcionesHtml += `
+                    <label class="flex items-center gap-2 p-1 hover:bg-gray-50 rounded cursor-pointer">
+                        <input type="checkbox" class="swal-asist-check" value="${est.dni}" ${marcado}>
+                        <span>${est.nombres} ${est.apellidos} <span class="text-xs text-gray-400">(${est.dni})</span></span>
+                    </label>
+                `;
+            });
+            opcionesHtml += `</div>`;
+
+            await Swal.fire({
+                title: `Asistencias: ${fechaSel}`,
+                html: opcionesHtml,
+                showCancelButton: true,
+                confirmButtonText: 'Actualizar Asistencias',
+                cancelButtonText: 'Cerrar',
+                preConfirm: () => {
+                    const checkboxes = document.querySelectorAll('.swal-asist-check');
+                    let nuevasAsistencias = asistencias.filter(a => a.fecha !== fechaSel); // limpiar el dia actual
+                    
+                    checkboxes.forEach(cb => {
+                        if (cb.checked) {
+                            nuevasAsistencias.push({ fecha: fechaSel, dni: cb.value });
+                        }
+                    });
+                    return nuevasAsistencias;
+                }
+            }).then((result) => {
+                if (result.value) {
+                    asistencias = result.value;
+                    renderAsistencias();
+                    Swal.fire('¡Listo!', 'El registro de asistencias ha sido actualizado.', 'success');
+                }
+            });
+        }
+
+        // 5. EXPORTAR RESPALDO DE DATOS EN ARCHIVO (.JS)
+        function exportarBackup() {
+            const dataBackup = {
+                fechaExportacion: new Date().toISOString(),
+                estudiantes: estudiantes,
+                asistencias: asistencias
+            };
+
+            // Formateamos el output como archivo de configuración JS accesible
+            const contenido = `// Backup del Sistema de Control Estudiantil\nconst backupData = ${JSON.stringify(dataBackup, null, 4)};`;
+            
+            const blob = new Blob([contenido], { type: 'text/javascript' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `backup_sistema_${new Date().toISOString().split('T')[0]}.js`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
