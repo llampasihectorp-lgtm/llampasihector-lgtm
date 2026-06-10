@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión de Trabajadores y Asistencia</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .calendar-day.active-attendance { background-color: #10B981; color: white; }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans text-gray-800">
+
+    <nav class="bg-blue-600 text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <i class="fa-solid fa-users-gear"></i> Control de Personal v1.0
+            </h1>
+            <div class="flex gap-2">
+                <button onclick="switchTab('trabajadores')" class="tab-btn bg-blue-700 hover:bg-blue-800 px-4 py-2 rounded-md font-medium transition text-sm">
+                    <i class="fa-solid fa-address-book mr-1"></i> Trabajadores
+                </button>
+                <button onclick="switchTab('asistencia')" class="tab-btn bg-blue-500 hover:bg-blue-700 px-4 py-2 rounded-md font-medium transition text-sm">
+                    <i class="fa-solid fa-calendar-check mr-1"></i> Asistencia & QR
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 py-6">
+
+        <section id="tab-trabajadores" class="tab-content active space-y-6">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl shadow-sm">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900">Panel de Trabajadores</h2>
+                    <p class="text-gray-500 text-sm">Administra el alta, baja y modificación del personal técnico y administrativo.</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="openWorkerModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium shadow transition flex items-center gap-2 text-sm">
+                        <i class="fa-solid fa-user-plus"></i> Nuevo Trabajador
+                    </button>
+                    <button onclick="exportBackup()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium shadow transition flex items-center gap-2 text-sm">
+                        <i class="fa-solid fa-download"></i> Exportar Backup (JS)
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200 text-left text-sm">
+                        <thead class="bg-gray-50 text-gray-700 uppercase text-xs font-semibold tracking-wider">
+                            <tr>
+                                <th class="px-6 py-4">DNI</th>
+                                <th class="px-6 py-4">Apellidos y Nombres</th>
+                                <th class="px-6 py-4">Género</th>
+                                <th class="px-6 py-4">Edad</th>
+                                <th class="px-6 py-4">Teléfono</th>
+                                <th class="px-6 py-4 text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="workers-table-body" class="divide-y divide-gray-200">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section id="tab-asistencia" class="tab-content space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                <div class="lg:col-span-1 space-y-6">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                        <h3 class="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+                            <i class="fa-solid fa-qrcode text-blue-600"></i> Escáner QR de Entrada
+                        </h3>
+                        <p class="text-xs text-gray-500 mb-4">Abre la cámara de tu móvil o PC para registrar asistencia escaneando el DNI del trabajador en formato QR.</p>
+                        
+                        <div class="bg-black rounded-lg overflow-hidden aspect-square relative flex items-center justify-center text-white" id="qr-reader-container">
+                            <div id="reader" class="w-full h-full"></div>
+                        </div>
+                        
+                        <div class="mt-4 flex gap-2">
+                            <button onclick="startScanner()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium transition">
+                                <i class="fa-solid fa-camera mr-1"></i> Iniciar Cámara
+                            </button>
+                            <button onclick="stopScanner()" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded-lg text-sm transition">
+                                <i class="fa-solid fa-video-slash"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                        <h3 class="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
+                            <i class="fa-solid fa-keyboard text-emerald-600"></i> Registro Manual / Incidencia
+                        </h3>
+                        <button onclick="openAttendanceModal()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-lg text-sm font-medium transition flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-plus"></i> Crear Registro Manual
+                        </button>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-2 space-y-6">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+                                <i class="fa-solid fa-calendar-days text-purple-600"></i> Calendario de Asistencias
+                            </h3>
+                            <div class="flex items-center gap-2 bg-gray-100 p-1 rounded-lg text-sm">
+                                <button onclick="changeMonth(-1)" class="p-1 px-2 hover:bg-white rounded transition font-bold">&lt;</button>
+                                <span id="calendar-month-year" class="font-semibold px-2"></span>
+                                <button onclick="changeMonth(1)" class="p-1 px-2 hover:bg-white rounded transition font-bold">&gt;</button>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-7 gap-2 text-center text-xs font-bold text-gray-500 uppercase mb-2">
+                            <div>Dom</div><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div>
+                        </div>
+                        <div id="calendar-grid" class="grid grid-cols-7 gap-2">
+                            </div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                        <h3 class="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3">Historial de registros en el día seleccionado</h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full text-left text-xs">
+                                <thead class="bg-gray-50 text-gray-600 uppercase font-semibold">
+                                    <tr>
+                                        <th class="p-3">Trabajador</th>
+                                        <th class="p-3">Estado</th>
+                                        <th class="p-3">Hora</th>
+                                        <th class="p-3 text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="attendance-log-body" class="divide-y divide-gray-100">
+                                    </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // --- 1. BASE DE DATOS INICIAL (15 Trabajadores del prompt previo) ---
+        const initialWorkers = [
+            { dni: "45891234", names: "Carlos Alberto", lastnames: "Mendoza Ruiz", gender: "Masculino", age: 34, phone: "987654321" },
+            { dni: "71234567", names: "Ana María", lastnames: "Gómez Peralta", gender: "Femenino", age: 28, phone: "951236487" },
+            { dni: "10457893", names: "Jorge Luis", lastnames: "Castro Vega", gender: "Masculino", age: 42, phone: "963852741" },
+            { dni: "48963215", names: "Sofía Valentina", lastnames: "Palomino Díaz", gender: "Femenino", age: 25, phone: "914725836" },
+            { dni: "09874125", names: "Miguel Ángel", lastnames: "Torres Rojas", gender: "Masculino", age: 51, phone: "932147852" },
+            { dni: "74125896", names: "Lucía Fernanda", lastnames: "Quispe Flores", gender: "Femenino", age: 31, phone: "974125369" },
+            { dni: "42369874", names: "Ricardo Javier", MoralesLuna: "", lastnames: "Morales Luna", gender: "Masculino", age: 39, phone: "985632147" },
+            { dni: "60125478", names: "Elena Beatriz", lastnames: "Salazar Cruz", gender: "Femenino", age: 45, phone: "962471358" },
+            { dni: "25896314", names: "David Alejandro", lastnames: "Chávez Gutiérrez", gender: "Masculino", age: 29, phone: "917485263" },
+            { dni: "73415926", names: "Camila Isabel", lastnames: "Ramos Benítez", gender: "Femenino", age: 23, phone: "996352148" },
+            { dni: "15926348", names: "Fernando José", lastnames: "Espinoza Soto", gender: "Masculino", age: 37, phone: "941258963" },
+            { dni: "47586912", names: "Valeria Nicole", lastnames: "Cárdenas Silva", gender: "Femenino", age: 33, phone: "983147256" },
+            { dni: "08642135", names: "Roberto Carlos", lastnames: "Villanueva Alva", gender: "Masculino", age: 48, phone: "925369147" },
+            { dni: "71938246", names: "Claudia Patricia", lastnames: "Vargas Merino", gender: "Femenino", age: 26, phone: "971824365" },
+            { dni: "43218765", names: "Andrés Eduardo", lastnames: "Delgado Reyes", gender: "Masculino", age: 55, phone: "964128753" }
+        ];
+
+        // Inicialización de Estados
+        let workers = JSON.parse(localStorage.getItem('workers')) || initialWorkers;
+        let attendances = JSON.parse(localStorage.getItem('attendances')) || [];
+        
+        let currentDate = new Date();
+        let selectedDateString = currentDate.toISOString().split('T')[0]; // YYYY-MM-DD por defecto hoy
+        let html5QrcodeScanner = null;
+
+        // Al cargar el DOM
+        document.addEventListener("DOMContentLoaded", () => {
+            renderWorkers();
+            renderCalendar();
+            renderAttendanceLog();
+        });
+
+        // Save utility
+        function saveToStorage() {
+            localStorage.setItem('workers', JSON.stringify(workers));
+            localStorage.setItem('attendances', JSON.stringify(attendances));
+        }
+
+        // --- Navegación entre Pestañas ---
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-700');
+                btn.classList.add('bg-blue-500');
+            });
+
+            if(tabName === 'trabajadores') {
+                document.getElementById('tab-trabajadores').classList.add('active');
+                event.currentTarget.classList.add('bg-blue-700');
+            } else {
+                document.getElementById('tab-asistencia').classList.add('active');
+                event.currentTarget.classList.add('bg-blue-700');
+                renderCalendar();
+            }
+        }
+
+        // --- 2. MÓDULO CRUD TRABAJADORES (SweetAlert2 interactivos) ---
+        function renderWorkers() {
+            const tbody = document.getElementById('workers-table-body');
+            tbody.innerHTML = '';
+            workers.forEach(w => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="px-6 py-4 font-mono font-bold text-gray-700">${w.dni}</td>
+                        <td class="px-6 py-4 font-medium text-gray-900">${w.lastnames}, ${w.names}</td>
+                        <td class="px-6 py-4 text-gray-600">${w.gender}</td>
+                        <td class="px-6 py-4 text-gray-600">${w.age} años</td>
+                        <td class="px-6 py-4 text-gray-600">${w.phone}</td>
+                        <td class="px-6 py-4 text-center flex justify-center gap-2">
+                            <button onclick="openWorkerModal('${w.dni}')" class="text-blue-600 hover:text-blue-900 bg-blue-50 p-2 rounded-lg transition" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>
+                            <button onclick="deleteWorker('${w.dni}')" class="text-red-600 hover:text-red-900 bg-red-50 p-2 rounded-lg transition" title="Eliminar"><i class="fa-solid fa-trash-can"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function openWorkerModal(dni = null) {
+            const isEdit = dni !== null;
+            const worker = isEdit ? workers.find(w => w.dni === dni) : { dni: '', names: '', lastnames: '', gender: 'Masculino', age: '', phone: '' };
+
+            const { value: formValues } = await Swal.fire({
+                title: isEdit ? 'Editar Datos de Trabajador' : 'Registrar Nuevo Trabajador',
+                html: `
+                    <div class="space-y-3 text-left">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1">DNI (Identificación única)</label>
+                            <input id="swal-dni" class="swal2-input m-0 w-full rounded border p-2" type="text" placeholder="DNI" value="${worker.dni}" ${isEdit ? 'disabled class="bg-gray-100"' : ''}>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1">Nombres</label>
+                            <input id="swal-names" class="swal2-input m-0 w-full rounded border p-2" type="text" placeholder="Nombres" value="${worker.names}">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1">Apellidos</label>
+                            <input id="swal-lastnames" class="swal2-input m-0 w-full rounded border p-2" type="text" placeholder="Apellidos" value="${worker.lastnames}">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">Género</label>
+                                <select id="swal-gender" class="swal2-input m-0 w-full rounded border p-2">
+                                    <option value="Masculino" ${worker.gender === 'Masculino' ? 'selected':''}>Masculino</option>
+                                    <option value="Femenino" ${worker.gender === 'Femenino' ? 'selected':''}>Femenino</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-600 mb-1">Edad</label>
+                                <input id="swal-age" class="swal2-input m-0 w-full rounded border p-2" type="number" placeholder="Edad" value="${worker.age}">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1">Teléfono móvil</label>
+                            <input id="swal-phone" class="swal2-input m-0 w-full rounded border p-2" type="text" placeholder="Teléfono" value="${worker.phone}">
+                        </div>
+                    </div>
+                `,
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Guardar Registro',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#10B981',
+                preConfirm: () => {
+                    const d = document.getElementById('swal-dni').value.trim();
+                    const n = document.getElementById('swal-names').value.trim();
+                    const l = document.getElementById('swal-lastnames').value.trim();
+                    const g = document.getElementById('swal-gender').value;
+                    const a = document.getElementById('swal-age').value;
+                    const p = document.getElementById('swal-phone').value.trim();
+
+                    if (!d || !n || !l || !a || !p) {
+                        Swal.showValidationMessage('Por favor completa todos los campos requeridos');
+                        return false;
+                    }
+                    if(!isEdit && workers.some(w => w.dni === d)) {
+                        Swal.showValidationMessage('Este DNI ya se encuentra registrado');
+                        return false;
+                    }
+                    return { dni: d, names: n, lastnames: l, gender: g, age: parseInt(a), phone: p };
+                }
+            });
+
+            if (formValues) {
+                if (isEdit) {
+                    const idx = workers.findIndex(w => w.dni === dni);
+                    workers[idx] = { ...workers[idx], ...formValues };
+                } else {
+                    workers.push(formValues);
+                }
+                saveToStorage();
+                renderWorkers();
+                Swal.fire('¡Éxito!', 'Los datos del trabajador se actualizaron.', 'success');
+            }
+        }
+
+        function deleteWorker(dni) {
+            Swal.fire({
+                title: '¿Estás completamente seguro?',
+                text: `Se borrará al trabajador con DNI ${dni} del sistema.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#EF4444',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    workers = workers.filter(w => w.dni !== dni);
+                    // Opcional: borrar asistencias vinculadas si se prefiere de manera estricta
+                    saveToStorage();
+                    renderWorkers();
+                    Swal.fire('Eliminado', 'El registro ha sido removido.', 'success');
+                }
+            });
+        }
+
+        // --- 3. MÓDULO CALENDARIO Y ASISTENCIAS ---
+        function renderCalendar() {
+            const grid = document.getElementById('calendar-grid');
+            const monthYearHeader = document.getElementById('calendar-month-year');
+            grid.innerHTML = '';
+
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+
+            const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+            monthYearHeader.innerText = `${monthNames[month]} ${year}`;
+
+            const firstDayIndex = new Date(year, month, 1).getDay();
+            const totalDays = new Date(year, month + 1, 0).getDate();
+
+            // Bloques vacíos para el desfase del primer día de la semana
+            for (let i = 0; i < firstDayIndex; i++) {
+                grid.innerHTML += `<div class="p-3"></div>`;
+            }
+
+            // Días del mes
+            for (let day = 1; day <= totalDays; day++) {
+                const dayString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                
+                // Verificar si hay asistencias registradas en ese día específico
+                const hasAttendance = attendances.some(a => a.date === dayString);
+                const isSelected = dayString === selectedDateString;
+
+                let dayClass = "p-3 border rounded-lg text-sm font-semibold cursor-pointer transition hover:bg-blue-50 ";
+                if (hasAttendance) dayClass += "bg-emerald-100 text-emerald-800 border-emerald-300 ";
+                if (isSelected) dayClass += "ring-4 ring-blue-500 shadow-inner ";
+
+                grid.innerHTML += `
+                    <button onclick="selectDate('${dayString}')" class="${dayClass}">
+                        ${day}
+                    </button>
+                `;
+            }
+        }
+
+        function changeMonth(direction) {
+            currentDate.setMonth(currentDate.getMonth() + direction);
+            renderCalendar();
+        }
+
+        function selectDate(dateStr) {
+            selectedDateString = dateStr;
+            renderCalendar();
+            renderAttendanceLog();
+        }
+
+        function renderAttendanceLog() {
+            const tbody = document.getElementById('attendance-log-body');
+            tbody.innerHTML = '';
+
+            // Filtrar asistencias del día seleccionado
+            const dailyLogs = attendances.filter(a => a.date === selectedDateString);
+
+            if(dailyLogs.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-400">Sin marcajes registrados para esta fecha (${selectedDateString}).</td></tr>`;
+                return;
+            }
+
+            dailyLogs.forEach(log => {
+                const worker = workers.find(w => w.dni === log.dni) || { names: 'Desconocido', lastnames: 'O eliminado' };
+                let badgeColor = log.status === 'Asistió' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800';
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="p-3 font-medium">${worker.lastnames}, ${worker.names} <br><span class="text-gray-400 font-mono text-[10px]">${log.dni}</span></td>
+                        <td class="p-3"><span class="px-2 py-1 rounded-full font-bold ${badgeColor}">${log.status}</span></td>
+                        <td class="p-3 font-mono">${log.time}</td>
+                        <td class="p-3 text-center">
+                            <button onclick="deleteAttendance('${log.id}')" class="text-red-500 hover:text-red-700 font-bold px-2 py-1 bg-red-50 rounded" title="Remover Marcaje"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // Registro de Asistencia Manual
+        async function openAttendanceModal() {
+            if (workers.length === 0) {
+                Swal.fire('Aviso', 'No hay trabajadores en el sistema para asignar asistencia.', 'info');
+                return;
+            }
+
+            let workerOptions = '';
+            workers.forEach(w => {
+                workerOptions += `<option value="${w.dni}">${w.lastnames}, ${w.names} (${w.dni})</option>`;
+            });
+
+            const { value: formValues } = await Swal.fire({
+                title: 'Nuevo Marcaje Manual',
+                html: `
+                    <div class="space-y-3 text-left">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1">Seleccionar Trabajador</label>
+                            <select id="swal-att-dni" class="swal2-input m-0 w-full rounded border p-2">${workerOptions}</select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1">Fecha de Registro</label>
+                            <input id="swal-att-date" type="date" class="swal2-input m-0 w-full rounded border p-2" value="${selectedDateString}">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 mb-1">Estado de Asistencia</label>
+                            <select id="swal-att-status" class="swal2-input m-0 w-full rounded border p-2">
+                                <option value="Asistió">Asistió (Normal)</option>
+                                <option value="Tardanza">Tardanza Justificada</option>
+                            </select>
+                        </div>
+                    </div>
+                `,
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonColor: '#059669',
+                preConfirm: () => {
+                    return {
+                        id: 'ATT-' + Date.now(),
+                        dni: document.getElementById('swal-att-dni').value,
+                        date: document.getElementById('swal-att-date').value,
+                        status: document.getElementById('swal-att-status').value,
+                        time: new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                    };
+                }
+            });
+
+            if(formValues) {
+                // Validación para evitar doble registro del mismo empleado el mismo día
+                const duplicate = attendances.some(a => a.dni === formValues.dni && a.date === formValues.date);
+                if (duplicate) {
+                    Swal.fire('Atención', 'Este empleado ya cuenta con un registro en la fecha seleccionada.', 'warning');
+                    return;
+                }
+                attendances.push(formValues);
+                saveToStorage();
+                selectDate(formValues.date);
+                Swal.fire('Registrado', 'Asistencia añadida de manera manual.', 'success');
+            }
+        }
+
+        function deleteAttendance(id) {
+            attendances = attendances.filter(a => a.id !== id);
+            saveToStorage();
+            renderCalendar();
+            renderAttendanceLog();
+        }
+
+        // --- 4. INTEGRACIÓN DE LECTOR QR (CÁMARA DISPOSITIVO MÓVIL) ---
+        function startScanner() {
+            const container = document.getElementById('reader');
+            container.innerHTML = ""; // Limpieza previa
+
+            html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
+                fps: 10, 
+                qrbox: { width: 250, height: 250 },
+                rememberLastUsedCamera: true,
+                supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
+            }, false);
+
+            html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+        }
+
+        function stopScanner() {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.clear().then(() => {
+                    document.getElementById('reader').innerHTML = "";
+                }).catch(err => console.error("Error apagando escáner:", err));
+            }
+        }
+
+        function onScanSuccess(decodedText, decodedResult) {
+            // Se asume que el código QR contiene exactamente el DNI del trabajador
+            const scannedDni = decodedText.trim();
+            const worker = workers.find(w => w.dni === scannedDni);
+
+            // Audio feedback nativo (Beep)
+            try {
+                const context = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = context.createOscillator();
+                osc.type = "sine"; osc.frequency.setValueAtTime(800, context.currentTime);
+                osc.connect(context.destination); osc.start(); osc.stop(context.currentTime + 0.15);
+            } catch(e){}
+
+            if (!worker) {
+                Swal.fire('Código No Reconocido', `El DNI escaneado (${scannedDni}) no está registrado en el sistema.`, 'error');
+                return;
+            }
+
+            const todayStr = new Date().toISOString().split('T')[0];
+            const duplicate = attendances.some(a => a.dni === scannedDni && a.date === todayStr);
+
+            if (duplicate) {
+                Swal.fire('Ya Registrado', `${worker.names} ${worker.lastnames} ya marcó asistencia el día de hoy.`, 'info');
+                return;
+            }
+
+            const newAttendance = {
+                id: 'ATT-' + Date.now(),
+                dni: scannedDni,
+                date: todayStr,
+                status: 'Asistió',
+                time: new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })
+            };
+
+            attendances.push(newAttendance);
+            saveToStorage();
+            selectDate(todayStr);
+
+            Swal.fire({
+                title: '¡Asistencia Registrada!',
+                text: `${worker.names} ${worker.lastnames} ingresó correctamente.`,
+                icon: 'success',
+                timer: 3000
+            });
+        }
+
+        function onScanFailure(error) {
+            // Falla nativa silenciosa mientras busca el QR en el recuadro de la cámara
+        }
+
+        // --- 5. EXPORTACIÓN DE BACKUP (.JS) ---
+        function exportBackup() {
+            const dataToExport = {
+                version: "1.0",
+                backupDate: new Date().toLocaleString(),
+                workers: workers,
+                attendances: attendances
+            };
+
+            const fileContent = `// BACKUP DEL SISTEMA DE TRABAJADORES\nconst BACKUP_DATA = ${JSON.stringify(dataToExport, null, 4)};`;
+            const blob = new Blob([fileContent], { type: 'application/javascript;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `backup_personal_${new Date().toISOString().split('T')[0]}.js`);
+            document.body.appendChild(link);
+            
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
